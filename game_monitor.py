@@ -77,10 +77,11 @@ class GameMonitor:
             new_play_count = len(all_plays) - len(self._seen_plays[game_pk])
             home_runs = extract_home_runs(all_plays, self._seen_plays[game_pk])
 
-            # Mark all new plays as seen (not just HRs)
+            # Only mark completed plays as seen — in-progress plays
+            # may not have eventType populated yet
             for play in all_plays:
                 idx = play.get("about", {}).get("atBatIndex")
-                if idx is not None:
+                if idx is not None and play.get("about", {}).get("isComplete"):
                     self._seen_plays[game_pk].add(idx)
 
             if new_play_count > 0:

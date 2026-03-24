@@ -42,6 +42,9 @@ def extract_home_runs(all_plays: list[dict], seen_indices: set[int]) -> list[dic
         if idx is None or idx in seen_indices:
             continue
 
+        if not play.get("about", {}).get("isComplete"):
+            continue
+
         result = play.get("result", {})
         if result.get("eventType") != "home_run":
             continue
