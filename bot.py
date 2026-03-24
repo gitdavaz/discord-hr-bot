@@ -214,17 +214,32 @@ async def send_hr_notification(hr: dict, game_info: dict, linescore: dict):
 
 # --- Lifecycle ---
 
+_monitor_started = False
+
+
 @bot.event
 async def on_ready():
+    global _monitor_started
     await tree.sync()
     logger.info("Logged in as %s (commands synced)", bot.user)
 
-    poll_interval = int(os.environ.get("POLL_INTERVAL", "15"))
-    monitor = GameMonitor(poll_interval=poll_interval)
-    monitor.on_home_run(send_hr_notification)
+    if not _monitor_started:
+        _monitor_started = True
+        poll_interval = int(os.environ.get("POLL_INTERVAL", "15"))
+        monitor = GameMonitor(poll_interval=poll_interval)
+        monitor.on_home_run(send_hr_notification)
+        bot.loop.create_task(_run_monitor(monitor))
 
-    async with aiohttp.ClientSession() as session:
-        await monitor.run(session)
+
+async def _run_monitor(monitor: GameMonitor):
+    """Run the monitor with a persistent session, restarting on failure."""
+    while True:
+        try:
+            async with aiohttp.ClientSession() as session:
+                await monitor.run(session)
+        except Exception:
+            logger.exception("Monitor crashed, restarting in 10s")
+            await asyncio.sleep(10)
 
 
 def main():

@@ -49,10 +49,10 @@ class GameMonitor:
         ]
 
         if not live_games:
-            logger.debug("No live games right now")
+            logger.info("No live games right now")
             return
 
-        logger.debug("Monitoring %d live game(s)", len(live_games))
+        logger.info("Polling %d live game(s)", len(live_games))
 
         for game in live_games:
             game_pk = game["gamePk"]
