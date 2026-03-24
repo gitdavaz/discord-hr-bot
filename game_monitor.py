@@ -74,6 +74,7 @@ class GameMonitor:
             feed = await api.get_live_feed(game_pk)
             all_plays = feed.get("liveData", {}).get("plays", {}).get("allPlays", [])
 
+            new_play_count = len(all_plays) - len(self._seen_plays[game_pk])
             home_runs = extract_home_runs(all_plays, self._seen_plays[game_pk])
 
             # Mark all new plays as seen (not just HRs)
@@ -81,6 +82,12 @@ class GameMonitor:
                 idx = play.get("about", {}).get("atBatIndex")
                 if idx is not None:
                     self._seen_plays[game_pk].add(idx)
+
+            if new_play_count > 0:
+                logger.info(
+                    "Game %d: %d new play(s), %d HR(s) found",
+                    game_pk, new_play_count, len(home_runs)
+                )
 
             if not home_runs or not self._on_home_run:
                 continue

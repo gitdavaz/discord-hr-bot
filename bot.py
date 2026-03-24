@@ -199,13 +199,20 @@ async def send_hr_notification(hr: dict, game_info: dict, linescore: dict):
 
     embed.set_footer(text=f"Game {game_info['game_pk']}")
 
+    logger.info("Sending HR notification to %d guild(s)", len(subscriptions))
     for guild_id, channel_ids in subscriptions.items():
         for channel_id in channel_ids:
             channel = bot.get_channel(channel_id)
             if channel is None:
-                continue
+                logger.warning("Channel %d not in cache, fetching...", channel_id)
+                try:
+                    channel = await bot.fetch_channel(channel_id)
+                except Exception:
+                    logger.exception("Failed to fetch channel %d", channel_id)
+                    continue
             try:
                 await channel.send(embed=embed)
+                logger.info("Sent HR notification to channel %d", channel_id)
             except discord.Forbidden:
                 logger.warning("Cannot send to channel %d - missing permissions", channel_id)
             except Exception:
