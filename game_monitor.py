@@ -31,6 +31,8 @@ class GameMonitor:
         """Main polling loop."""
         self._running = True
         api = MLBApi(session)
+        self._team_abbrevs = await api.get_team_abbrevs()
+        logger.info("Loaded %d team abbreviations", len(self._team_abbrevs))
 
         while self._running:
             try:
@@ -93,10 +95,14 @@ class GameMonitor:
             if not home_runs or not self._on_home_run:
                 continue
 
+            away_id = game["teams"]["away"]["team"]["id"]
+            home_id = game["teams"]["home"]["team"]["id"]
             game_info = {
                 "game_pk": game_pk,
                 "away_team": game["teams"]["away"]["team"]["name"],
                 "home_team": game["teams"]["home"]["team"]["name"],
+                "away_abbrev": self._team_abbrevs.get(away_id, "???"),
+                "home_abbrev": self._team_abbrevs.get(home_id, "???"),
             }
 
             linescore = await api.get_linescore(game_pk)
