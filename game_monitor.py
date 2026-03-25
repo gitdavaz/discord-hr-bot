@@ -60,6 +60,7 @@ class GameMonitor:
         live_games = [
             g for g in games
             if g.get("status", {}).get("abstractGameState") == "Live"
+            and g.get("gameType") != "E"
         ]
 
         if not live_games:
