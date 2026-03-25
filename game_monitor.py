@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import date, timezone, datetime
+from datetime import date, timezone, datetime, timedelta
 from typing import Callable, Awaitable
 
 import aiohttp
@@ -42,8 +42,20 @@ class GameMonitor:
             await asyncio.sleep(self.poll_interval)
 
     async def _poll(self, api: MLBApi):
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        now_utc = datetime.now(timezone.utc)
+        today = now_utc.strftime("%Y-%m-%d")
+        yesterday = (now_utc - timedelta(days=1)).strftime("%Y-%m-%d")
+
+        # Check both today and yesterday to catch late-night games
+        # that started on the previous calendar day (UTC)
         games = await api.get_todays_games(today)
+        if yesterday != today:
+            yesterday_games = await api.get_todays_games(yesterday)
+            # Deduplicate by gamePk
+            seen_pks = {g["gamePk"] for g in games}
+            for g in yesterday_games:
+                if g["gamePk"] not in seen_pks:
+                    games.append(g)
 
         live_games = [
             g for g in games
