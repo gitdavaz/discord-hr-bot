@@ -12,8 +12,8 @@ from mlb_api import MLBApi, extract_home_runs
 
 logger = logging.getLogger(__name__)
 
-# Callback type: called with (home_run_info, game_info, linescore)
-HRCallback = Callable[[dict, dict, dict], Awaitable[None]]
+# Callback type: called with (home_run_info, game_info)
+HRCallback = Callable[[dict, dict], Awaitable[None]]
 
 
 class GameMonitor:
@@ -118,11 +118,9 @@ class GameMonitor:
                 "home_abbrev": self._team_abbrevs.get(home_id, "???"),
             }
 
-            linescore = await api.get_linescore(game_pk)
-
             for hr in home_runs:
                 logger.info("HR detected: %s", hr["description"])
-                await self._on_home_run(hr, game_info, linescore)
+                await self._on_home_run(hr, game_info)
 
         # Clean up finished games
         live_pks = {g["gamePk"] for g in live_games}

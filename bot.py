@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import io
 import json
 import logging
 import os
@@ -14,7 +13,7 @@ import discord
 from discord import app_commands
 
 from game_monitor import GameMonitor
-from mlb_api import render_linescore_image, get_team_logo_url
+from mlb_api import get_team_logo_url
 
 # Load .env file if present
 _env_path = Path(__file__).resolve().parent / ".env"
@@ -125,21 +124,9 @@ async def test(interaction: discord.Interaction):
         "away_abbrev": "NYY",
         "home_abbrev": "LAD",
     }
-    linescore = {
-        "innings": [
-            {"num": i, "away": {"runs": r[0]}, "home": {"runs": r[1]}}
-            for i, r in enumerate(
-                [(0, 1), (2, 0), (0, 0), (1, 1), (0, 2)], start=1
-            )
-        ],
-        "teams": {
-            "away": {"runs": 3, "hits": 7, "errors": 0},
-            "home": {"runs": 4, "hits": 6, "errors": 1},
-        },
-    }
-    embed, file = _build_hr_embed(hr, game_info, linescore)
+    embed = _build_hr_embed(hr, game_info)
     embed.set_footer(text="Test notification")
-    await interaction.response.send_message(embed=embed, file=file)
+    await interaction.response.send_message(embed=embed)
 
 
 @tree.command(name="status", description="Show which channels are subscribed to HR notifications")
@@ -159,8 +146,8 @@ async def status(interaction: discord.Interaction):
 
 # --- Home run notification ---
 
-def _build_hr_embed(hr: dict, game_info: dict, linescore: dict) -> tuple:
-    """Build embed + file attachment for a HR notification. Returns (embed, file)."""
+def _build_hr_embed(hr: dict, game_info: dict) -> discord.Embed:
+    """Build embed for a HR notification."""
     # Determine which team hit the HR (top = away batting, bottom = home batting)
     if hr["half"] == "Top":
         batting_abbrev = game_info.get("away_abbrev", "")
@@ -191,19 +178,12 @@ def _build_hr_embed(hr: dict, game_info: dict, linescore: dict) -> tuple:
         inline=False,
     )
 
-    # Render box score as image
-    away = game_info.get("away_abbrev") or game_info["away_team"]
-    home = game_info.get("home_abbrev") or game_info["home_team"]
-    img_bytes = render_linescore_image(linescore, away, home)
-    file = discord.File(io.BytesIO(img_bytes), filename="boxscore.png")
-    embed.set_image(url="attachment://boxscore.png")
-
     embed.set_footer(text=f"{game_info['away_team']} vs {game_info['home_team']}")
 
-    return embed, file
+    return embed
 
 
-async def send_hr_notification(hr: dict, game_info: dict, linescore: dict):
+async def send_hr_notification(hr: dict, game_info: dict):
     """Send an embed to all subscribed channels."""
     logger.info("Sending HR notification to %d guild(s)", len(subscriptions))
     for guild_id, channel_ids in subscriptions.items():
@@ -217,8 +197,8 @@ async def send_hr_notification(hr: dict, game_info: dict, linescore: dict):
                     logger.exception("Failed to fetch channel %d", channel_id)
                     continue
             try:
-                embed, file = _build_hr_embed(hr, game_info, linescore)
-                await channel.send(embed=embed, file=file)
+                embed = _build_hr_embed(hr, game_info)
+                await channel.send(embed=embed)
                 logger.info("Sent HR notification to channel %d", channel_id)
             except discord.Forbidden:
                 logger.warning("Cannot send to channel %d - missing permissions", channel_id)
