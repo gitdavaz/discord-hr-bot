@@ -60,6 +60,13 @@ def extract_home_runs(all_plays: list[dict], seen_indices: set[int]) -> list[dic
         pitcher = play.get("matchup", {}).get("pitcher", {})
         about = play.get("about", {})
 
+        # Extract hit data from the final pitch event
+        hit_data = {}
+        for event in reversed(play.get("playEvents", [])):
+            if event.get("hitData"):
+                hit_data = event["hitData"]
+                break
+
         home_runs.append({
             "batter_name": batter.get("fullName", "Unknown"),
             "pitcher_name": pitcher.get("fullName", "Unknown"),
@@ -69,6 +76,8 @@ def extract_home_runs(all_plays: list[dict], seen_indices: set[int]) -> list[dic
             "rbi": result.get("rbi", 1),
             "away_score": result.get("awayScore", 0),
             "home_score": result.get("homeScore", 0),
+            "exit_velo": hit_data.get("launchSpeed"),
+            "distance": hit_data.get("totalDistance"),
         })
 
     return home_runs
@@ -82,12 +91,26 @@ def render_linescore_image(linescore: dict, away_name: str, home_name: str) -> b
     innings = linescore.get("innings", [])
     totals = linescore.get("teams", {})
 
+    # Always show at least 9 innings; expand for extras
+    num_innings = max(9, len(innings))
+
+    # Build inning data padded to num_innings
+    inning_data = []
+    for i in range(1, num_innings + 1):
+        if i <= len(innings):
+            inning_data.append(innings[i - 1])
+        else:
+            inning_data.append({"num": i})
+
     # Build table data
-    header = [""] + [str(i.get("num", "")) for i in innings] + ["R", "H", "E"]
-    away_row = [away_name[:4]] + [str(i.get("away", {}).get("runs", "")) for i in innings]
+    header = [""] + [str(i.get("num", "")) for i in inning_data] + ["R", "H", "E"]
+    away_row = [away_name[:4]]
+    home_row = [home_name[:4]]
+    for inn in inning_data:
+        away_row.append(str(inn.get("away", {}).get("runs", "")) if "away" in inn else "")
+        home_row.append(str(inn.get("home", {}).get("runs", "")) if "home" in inn else "")
     away_t = totals.get("away", {})
     away_row += [str(away_t.get("runs", 0)), str(away_t.get("hits", 0)), str(away_t.get("errors", 0))]
-    home_row = [home_name[:4]] + [str(i.get("home", {}).get("runs", "")) for i in innings]
     home_t = totals.get("home", {})
     home_row += [str(home_t.get("runs", 0)), str(home_t.get("hits", 0)), str(home_t.get("errors", 0))]
 

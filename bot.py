@@ -115,6 +115,8 @@ async def test(interaction: discord.Interaction):
         "rbi": 2,
         "away_score": 3,
         "home_score": 4,
+        "exit_velo": 114.2,
+        "distance": 465,
     }
     game_info = {
         "game_pk": 0,
@@ -178,6 +180,11 @@ def _build_hr_embed(hr: dict, game_info: dict, linescore: dict) -> tuple:
     embed.add_field(name="Pitcher", value=hr["pitcher_name"], inline=True)
     embed.add_field(name="Inning", value=f"{hr['half']} {hr['inning']}", inline=True)
     embed.add_field(name="RBI", value=str(hr["rbi"]), inline=True)
+
+    if hr.get("exit_velo") is not None:
+        embed.add_field(name="Exit Velo", value=f"{hr['exit_velo']} mph", inline=True)
+    if hr.get("distance") is not None:
+        embed.add_field(name="Distance", value=f"{int(hr['distance'])} ft", inline=True)
     embed.add_field(
         name="Score",
         value=f"{game_info['away_team']} {hr['away_score']} - {hr['home_score']} {game_info['home_team']}",
