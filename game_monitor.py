@@ -119,7 +119,8 @@ class GameMonitor:
             }
 
             for hr in home_runs:
-                logger.info("HR detected: %s", hr["description"])
+                logger.info("HR detected: %s (sending in 10s)", hr["description"])
+                await asyncio.sleep(10)
                 await self._on_home_run(hr, game_info)
 
         # Clean up finished games
