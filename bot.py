@@ -13,7 +13,6 @@ import discord
 from discord import app_commands
 
 from game_monitor import GameMonitor
-from mlb_api import get_team_logo_url
 
 # Load .env file if present
 _env_path = Path(__file__).resolve().parent / ".env"
@@ -148,37 +147,32 @@ async def status(interaction: discord.Interaction):
 
 def _build_hr_embed(hr: dict, game_info: dict) -> discord.Embed:
     """Build embed for a HR notification."""
-    # Determine which team hit the HR (top = away batting, bottom = home batting)
-    if hr["half"] == "Top":
-        batting_abbrev = game_info.get("away_abbrev", "")
-    else:
-        batting_abbrev = game_info.get("home_abbrev", "")
+    # Build a compact stat line so the embed stays short on mobile
+    # (inline fields stack one-per-row on mobile and blow up the height).
+    stats = [f"{hr['half']} {hr['inning']}", f"{hr['rbi']} RBI"]
+    if hr.get("exit_velo") is not None:
+        stats.append(f"{hr['exit_velo']} mph")
+    if hr.get("distance") is not None:
+        stats.append(f"{int(hr['distance'])} ft")
+
+    away_abbrev = game_info.get("away_abbrev", "") or game_info["away_team"]
+    home_abbrev = game_info.get("home_abbrev", "") or game_info["home_team"]
+
+    # Top of the inning = away team batting, bottom = home team batting.
+    batting_team = game_info["away_team"] if hr["half"] == "Top" else game_info["home_team"]
+
+    description = (
+        f"{hr['description']}\n\n"
+        f"**{' · '.join(stats)}**\n"
+        f"vs {hr['pitcher_name']}\n"
+        f"{away_abbrev} {hr['away_score']} – {hr['home_score']} {home_abbrev}"
+    )
 
     embed = discord.Embed(
-        title="HOME RUN!",
-        description=hr["description"],
+        title=f"💥 Home Run — {hr['batter_name']} ({batting_team})",
+        description=description,
         color=discord.Color.red(),
     )
-
-    if batting_abbrev:
-        embed.set_thumbnail(url=get_team_logo_url(batting_abbrev))
-
-    embed.add_field(name="Batter", value=hr["batter_name"], inline=True)
-    embed.add_field(name="Pitcher", value=hr["pitcher_name"], inline=True)
-    embed.add_field(name="Inning", value=f"{hr['half']} {hr['inning']}", inline=True)
-    embed.add_field(name="RBI", value=str(hr["rbi"]), inline=True)
-
-    if hr.get("exit_velo") is not None:
-        embed.add_field(name="Exit Velo", value=f"{hr['exit_velo']} mph", inline=True)
-    if hr.get("distance") is not None:
-        embed.add_field(name="Distance", value=f"{int(hr['distance'])} ft", inline=True)
-    embed.add_field(
-        name="Score",
-        value=f"{game_info['away_team']} {hr['away_score']} - {hr['home_score']} {game_info['home_team']}",
-        inline=False,
-    )
-
-    embed.set_footer(text=f"{game_info['away_team']} vs {game_info['home_team']}")
 
     return embed
 
