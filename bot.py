@@ -123,9 +123,8 @@ async def test(interaction: discord.Interaction):
         "away_abbrev": "NYY",
         "home_abbrev": "LAD",
     }
-    embed = _build_hr_embed(hr, game_info)
-    embed.set_footer(text="Test notification")
-    await interaction.response.send_message(embed=embed)
+    message = _build_hr_message(hr, game_info)
+    await interaction.response.send_message(f"{message}\n-# Test notification")
 
 
 @tree.command(name="status", description="Show which channels are subscribed to HR notifications")
@@ -145,36 +144,26 @@ async def status(interaction: discord.Interaction):
 
 # --- Home run notification ---
 
-def _build_hr_embed(hr: dict, game_info: dict) -> discord.Embed:
-    """Build embed for a HR notification."""
-    # Build a compact stat line so the embed stays short on mobile
-    # (inline fields stack one-per-row on mobile and blow up the height).
-    stats = [f"{hr['half']} {hr['inning']}", f"{hr['rbi']} RBI"]
-    if hr.get("exit_velo") is not None:
-        stats.append(f"{hr['exit_velo']} mph")
-    if hr.get("distance") is not None:
-        stats.append(f"{int(hr['distance'])} ft")
-
+def _build_hr_message(hr: dict, game_info: dict) -> str:
+    """Build a single-line plain-text HR notification."""
     away_abbrev = game_info.get("away_abbrev", "") or game_info["away_team"]
     home_abbrev = game_info.get("home_abbrev", "") or game_info["home_team"]
 
     # Top of the inning = away team batting, bottom = home team batting.
     batting_team = game_info["away_team"] if hr["half"] == "Top" else game_info["home_team"]
 
-    description = (
-        f"{hr['description']}\n\n"
-        f"**{' · '.join(stats)}**\n"
-        f"vs {hr['pitcher_name']}\n"
-        f"{away_abbrev} {hr['away_score']} – {hr['home_score']} {home_abbrev}"
-    )
+    stats = [f"{hr['rbi']} RBI"]
+    if hr.get("exit_velo") is not None:
+        stats.append(f"{hr['exit_velo']} mph")
+    if hr.get("distance") is not None:
+        stats.append(f"{int(hr['distance'])} ft")
 
-    embed = discord.Embed(
-        title=f"💥 Home Run — {hr['batter_name']} ({batting_team})",
-        description=description,
-        color=discord.Color.red(),
-    )
+    score = f"{away_abbrev} {hr['away_score']}–{hr['home_score']} {home_abbrev}"
 
-    return embed
+    return (
+        f"💥 **{hr['batter_name']}** ({batting_team}) HR — "
+        f"{' · '.join(stats)} · {score}"
+    )
 
 
 async def send_hr_notification(hr: dict, game_info: dict):
@@ -191,8 +180,7 @@ async def send_hr_notification(hr: dict, game_info: dict):
                     logger.exception("Failed to fetch channel %d", channel_id)
                     continue
             try:
-                embed = _build_hr_embed(hr, game_info)
-                await channel.send(embed=embed)
+                await channel.send(_build_hr_message(hr, game_info))
                 logger.info("Sent HR notification to channel %d", channel_id)
             except discord.Forbidden:
                 logger.warning("Cannot send to channel %d - missing permissions", channel_id)
