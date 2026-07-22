@@ -144,6 +144,15 @@ async def status(interaction: discord.Interaction):
 
 # --- Home run notification ---
 
+def _ordinal(n: int) -> str:
+    """Return the ordinal string for an integer (1 -> '1st')."""
+    if 10 <= n % 100 <= 20:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
+
+
 def _build_hr_message(hr: dict, game_info: dict) -> str:
     """Build a single-line plain-text HR notification."""
     away_abbrev = game_info.get("away_abbrev", "") or game_info["away_team"]
@@ -152,7 +161,10 @@ def _build_hr_message(hr: dict, game_info: dict) -> str:
     # Top of the inning = away team batting, bottom = home team batting.
     batting_team = game_info["away_team"] if hr["half"] == "Top" else game_info["home_team"]
 
-    stats = [f"{hr['rbi']} RBI"]
+    stats = []
+    if hr.get("inning") is not None:
+        stats.append(f"{hr['half']} {_ordinal(hr['inning'])}")
+    stats.append(f"{hr['rbi']} RBI")
     if hr.get("exit_velo") is not None:
         stats.append(f"{hr['exit_velo']} mph")
     if hr.get("distance") is not None:
